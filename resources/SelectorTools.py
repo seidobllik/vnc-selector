@@ -50,12 +50,12 @@ def is_alive(address:str, port:int=5900):
         port (int):  Port which the Tight VNC service is broadcasting.
     '''
     s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-    s.settimeout(0.25)
+    s.settimeout(0.1)
     result = None
     try:
         result = s.connect_ex((address,port))
     except socket.error as e:
-        print(e)
+        pass
     finally:
         s.close()
     if result == 0:

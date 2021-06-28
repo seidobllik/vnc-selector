@@ -1,8 +1,10 @@
+from os import stat
 import tkinter as tk
-# from tkinter import Toplevel, messagebox
 import resources.Toplevels as Toplevels
 import resources.SelectorTools as SelectorTools
 from PIL import ImageTk
+import threading
+import time
 
 DATA_FILE = SelectorTools.DATA_FILE
 
@@ -26,6 +28,7 @@ class App(tk.Tk):
         self._red_led = ImageTk.PhotoImage(file='resources\\red.png')
         self._status_led = None  # Assigned to tk.Canvas in create_widgets().
         self._connect_button = None  # Assigned to tk.Button in create_widgets().
+        self._refresh_button = None  # Assigned to tk.Button in create_widgets().
         self._listbox = None  # Assied to tk.Listbox in create_widgets().
         self._listbox_list = tk.StringVar()
         self.target = {
@@ -37,7 +40,7 @@ class App(tk.Tk):
 
         # Start the app.
         self._create_widgets()
-        self.update_connection_status(True)    
+        self.run_status_thread(True)
 
     def _create_widgets(self):
         '''
@@ -89,9 +92,9 @@ class App(tk.Tk):
         tk.Label(info_frame, textvariable=self.target['hostname'], borderwidth=2, relief='sunken').pack(fill=tk.X, expand=True)
         tk.Label(info_frame, text='Target IP').pack(fill=tk.X)
         tk.Label(info_frame, textvariable=self.target['ip address'], borderwidth=2, relief='sunken').pack(fill=tk.X, expand=True)
-        refresh_button = tk.Button(button_frame, image=self._refresh_image, compound=tk.LEFT, command=self.update_connection_status)
-        refresh_button.pack(side=tk.LEFT)
-        refresh_button_ttp = Toplevels.Tooltip(refresh_button, 'Refresh all servers status')
+        self._refresh_button = tk.Button(button_frame, image=self._refresh_image, compound=tk.LEFT, command=lambda : self.run_status_thread())
+        self._refresh_button.pack(side=tk.LEFT)
+        Toplevels.Tooltip(self._refresh_button, 'Refresh all servers status')
         self._connect_button = tk.Button(button_frame, text='Connect', command=self.connect)
         self._connect_button.pack(padx=(0, 20))
 
@@ -133,10 +136,11 @@ class App(tk.Tk):
         selected connection.
         '''
         # the server password should be accessed here.
-        hostname = self.target['hostname']
-        ip = self.target['ip address']
-        pwd = self.target['vnc password']
-        port = self.target['vnc port']
+        connection = self.target['connection'].get()
+        hostname = self.available_connections[connection]['hostname']
+        ip = self.available_connections[connection]['ip address']
+        pwd = self.available_connections[connection]['vnc password']
+        port = self.available_connections[connection]['vnc port']
         target = hostname if hostname != '' else ip
         SelectorTools.launch_viewer(target, pwd, port)
     
@@ -151,7 +155,7 @@ class App(tk.Tk):
         WARNING: Auto-refresh is enabled and started during App init, and should not typically
         be started manually.
         
-        Background task, and called when 'refresh' button is pressed. Updates the 'alive' status of 
+        Background task, and called when 'refresh' button is pressed. Updates the 'is alive' status of 
         each connection listed.
 
         Auto-refresh rate is 60 seconds. 
@@ -160,14 +164,28 @@ class App(tk.Tk):
           loop (bool):  If True, auto-refresh is enabled. (default False)
         '''
         for key in self.available_connections.keys():
-            self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['ip address'])
+            if self.available_connections[key]['hostname'] != '':
+                self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['hostname'])
+            else:
+                self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['ip address'])
         try:
             is_alive = self.available_connections[self._listbox.selection_get()]['is alive']
         except:
             is_alive = None
         self._status_led.create_image(11, 11, image=self._green_led if is_alive else self._red_led)
         if loop:
-            self.after(60000, self.update_connection_status, (True))
+            time.sleep(60)
+            self.update_connection_status(True)
+            # self.after(60000, self.update_connection_status, (True))
+        else:
+            self._refresh_button.config(state='normal')
+
+    def run_status_thread(self, loop=False):
+        if not loop:
+            self._refresh_button.config(state='disabled')
+        status_thread = threading.Thread(target=self.update_connection_status, args=(loop,))
+        status_thread.setDaemon(True)
+        status_thread.start()
 
     def add_connection(self):
         '''
