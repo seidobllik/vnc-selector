@@ -1,7 +1,7 @@
-from tkinter.constants import SE
 import tkinter as tk
+from tkinter import ttk
 import tkinter.font as tkFont
-from tkinter import messagebox
+from tkinter import Button, messagebox
 from PIL import ImageTk
 import webbrowser
 import resources.SelectorTools as SelectorTools
@@ -88,7 +88,9 @@ class About(tk.Toplevel):
         y = int(parent.winfo_screenheight()/2.5)
         self.geometry(f'+{x}+{y}')
         self.grab_set()
+        self.create_widgets()
         
+    def create_widgets(self):
         root_frame = tk.Frame(self)
         root_frame.pack(fill=tk.BOTH, padx=10, pady=10)
         text_frame = tk.Frame(root_frame)
@@ -124,6 +126,7 @@ class AddConnection(tk.Toplevel):
         self._connection_entry = None
         self._password_entry = None
         self._port_entry = None
+
         self.grab_set()
         self.create_widgets()
         
@@ -167,13 +170,16 @@ class AddConnection(tk.Toplevel):
         port = self._port_entry.get() or '5900'
 
         if hostname == '' and ip == '':
-            messagebox.showwarning('Add Connection Error', 'Failed to add connection. You must include either a Hostname or an IP Address.')
+            messagebox.showerror('Add Connection Error', 'Failed to add connection. You must include either a Hostname or an IP Address.')
             return
         if connection == '': 
             connection = hostname or ip
         if port == '':
             port = '5900'
         available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        if connection in available_connections.keys():
+            messagebox.showerror('Add Connection Error', 'Failed to add connection. A connection with that name already exists.')
+            return
         available_connections[connection] = {
             'hostname': hostname, 
             'ip address': ip, 
@@ -215,3 +221,65 @@ class ScanNetwork(tk.Toplevel):
         x = int(parent.winfo_screenwidth()/2.5)
         y = int(parent.winfo_screenheight()/2.5)
         self.geometry(f'+{x}+{y}')
+
+        # Instance Variables.
+        self._this_pc = SelectorTools.get_this_pc_info()
+        self._known_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        self._connections_found = tk.StringVar()
+        self._connections_found.set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'asdfasdf', 'qwerqwer', 'zxvczxvczxvc'])
+        self._host_ip = tk.StringVar()
+        self._host_ip.set('.'.join(self._this_pc['ip'].split('.')[:-1]) + '.')
+        self._start_ip = tk.StringVar(self, '1')
+        self._end_ip = tk.StringVar(self, '255')
+        self._progress_bar = None  # Assigned to ttk.Progressbar in create_widgets().
+        self._progress_text = tk.StringVar()
+
+        self.grab_set()
+        self.create_widgets()
+        
+    def create_widgets(self):
+        '''
+        The list of discovered connections should omit the current machine as well as any already known connections.
+        '''
+
+        # Build and pack the frames.
+        root_frame = tk.Frame(self)
+        root_frame.pack(fill=tk.BOTH, padx=2, pady=2)
+        settings_frame = tk.Frame(root_frame)
+        settings_frame.pack(fill=tk.BOTH, side=tk.LEFT, anchor=tk.NW, padx=2, pady=2)
+        scan_frame = tk.Frame(root_frame)
+        scan_frame.pack(fill=tk.BOTH, side=tk.RIGHT, anchor=tk.NE, padx=2, pady=2)
+        progress_frame = tk.Frame(settings_frame)  # Packed with the progress frame widgets.
+
+        # Build and pack the settings frame widgets.
+        tk.Label(settings_frame, text='Scan IP Addresses', justify=tk.LEFT).pack(anchor=tk.NW)
+        ip_subframe = tk.Frame(settings_frame)
+        ip_subframe.pack(anchor=tk.NW)
+        tk.Label(ip_subframe, textvariable=self._host_ip, justify=tk.LEFT).pack(side=tk.LEFT, anchor=tk.NW)
+        tk.Entry(ip_subframe, textvariable=self._start_ip, justify=tk.RIGHT, width=3).pack(side=tk.LEFT, anchor=tk.NW)
+        tk.Label(ip_subframe, text='thru').pack(side=tk.LEFT, anchor=tk.NW)
+        tk.Entry(ip_subframe, textvariable=self._end_ip, justify=tk.RIGHT, width=3).pack(side=tk.LEFT, anchor=tk.NW)
+        tk.Button(settings_frame, text='Start Scan', command=None).pack(anchor=tk.NE)
+
+        # Build and pack the scan frame widgets.
+        tk.Label(scan_frame, text='Available to Add:', justify=tk.LEFT).pack(anchor=tk.NW)
+        list_subframe = tk.Frame(scan_frame)
+        list_subframe.pack(anchor=tk.NW)
+        listbox = tk.Listbox(list_subframe, listvariable=self._connections_found, selectmode=tk.MULTIPLE, height=6)
+        listbox.pack(side=tk.LEFT, anchor=tk.NW)
+        scrollbar = tk.Scrollbar(list_subframe)
+        scrollbar.pack(fill=tk.Y, side=tk.RIGHT, anchor=tk.NE)
+        button_subframe = tk.Frame(scan_frame)
+        button_subframe.pack(anchor=tk.NW)
+        tk.Button(button_subframe, text='Add Selected', command=None).pack(side=tk.LEFT, anchor=tk.W)
+        tk.Button(button_subframe, text='Close', command=self.destroy).pack(side=tk.RIGHT, anchor=tk.E, padx=(5, 0))
+
+        # Build and pack the progress frame widgets.
+        progress_frame.pack(side=tk.BOTTOM, anchor=tk.SE, padx=2, pady=2)
+        self._progress_bar = ttk.Progressbar(progress_frame, orient='horizontal', mode='determinate', length=120)
+        self._progress_bar.pack(fill=tk.X, anchor=tk.S)
+        tk.Label(progress_frame, textvariable=self._progress_text).pack(anchor=tk.S)
+
+        # Widget config settings.
+        scrollbar.config(command=listbox.yview)
+        listbox.config(yscrollcommand=scrollbar.set)

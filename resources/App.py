@@ -1,4 +1,3 @@
-from os import stat
 import tkinter as tk
 import resources.Toplevels as Toplevels
 import resources.SelectorTools as SelectorTools
@@ -60,7 +59,8 @@ class App(tk.Tk):
         help_menu = tk.Menu(menu, tearoff=0)
         help_menu.add_command(label='About', command=lambda : Toplevels.About(self))
         menu.add_cascade(label='Help', menu=help_menu)
-        self._file_menu.entryconfig(1, state='disabled')
+        self._file_menu.entryconfig(1, state='disabled')  # Delete Connection disabled initially.
+        self._file_menu.entryconfig(4, state='disabled')  # Settings disabled until the feature is added.
 
         # Build and pack the frames.
         root_frame = tk.Frame(self)
@@ -127,6 +127,7 @@ class App(tk.Tk):
             self.target['connection'].set('')
             self.target['hostname'].set('')
             self.target['ip address'].set('')
+            self._status_led.create_image(11, 11, image=self._red_led)
             self._connect_button.config(state='disabled')
             self._file_menu.entryconfig(1, state='disabled')
         
@@ -195,19 +196,21 @@ class App(tk.Tk):
         self.available_connections = self.get_saved_connections()
         self._listbox_list.set(sorted([key for key in self.available_connections.keys()]))
         self._listbox.select_clear(0, tk.END)
-        self.update_connection_status()
+        self.update_info()
+        self.run_status_thread()
     
     def delete_connection(self):
         '''
         Loads the Delete Connection window, then updates all available connections and their status.
         '''
         connection = self._listbox.get(self._listbox.curselection()[0])
+        self.bell()
         Toplevels.DeleteConnection(connection)
         self.available_connections = self.get_saved_connections()
         self._listbox_list.set(sorted([key for key in self.available_connections.keys()]))
         self._listbox.select_clear(0, tk.END)
         self.update_info()
-        self.update_connection_status()
+        self.run_status_thread()
     
     def scan_network(self):
         '''
@@ -218,7 +221,7 @@ class App(tk.Tk):
         self._listbox_list.set(sorted([key for key in self.available_connections.keys()]))
         self._listbox.select_clear(0, tk.END)
         self.update_info()
-        self.update_connection_status()
+        self.run_status_thread()
 
 # if __name__ == '__main__':
 #     app = App()
