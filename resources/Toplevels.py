@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkFont
-from tkinter import Button, messagebox
+from tkinter import messagebox
 from PIL import ImageTk
 import webbrowser
 import resources.SelectorTools as SelectorTools
@@ -211,8 +211,8 @@ class DeleteConnection(object):
 
 class ScanNetwork(tk.Toplevel):
     '''
-    Displays the window to configure and start a network scan, and then select and discovered
-    connections to add them to the available connections list.
+    Displays the window to configure and start a network scan, and then lists the discovered
+    connections so the user can add them to the available connections list.
     '''
     def __init__(self, parent):
         tk.Toplevel.__init__(self, parent)
@@ -225,23 +225,23 @@ class ScanNetwork(tk.Toplevel):
         # Instance Variables.
         self._this_pc = SelectorTools.get_this_pc_info()
         self._known_connections = SelectorTools.get_connections_from_file(DATA_FILE)
-        self._connections_found = tk.StringVar()
-        self._connections_found.set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'asdfasdf', 'qwerqwer', 'zxvczxvczxvc'])
+        self._available_list = tk.StringVar()
+        self._connections_discovered = []
+        self._listbox = None  # Assigned to tk.Listbox in create_widgets().
         self._host_ip = tk.StringVar()
         self._host_ip.set('.'.join(self._this_pc['ip'].split('.')[:-1]) + '.')
         self._start_ip = tk.StringVar(self, '1')
         self._end_ip = tk.StringVar(self, '255')
+        self._port = tk.StringVar(self, '5900')
         self._progress_bar = None  # Assigned to ttk.Progressbar in create_widgets().
         self._progress_text = tk.StringVar()
+        self._scan_button = None  # Assigned to tk.Button in create_widgets().
+        self._add_button = None  # Assigned to tk.Button in create_widgets().
 
         self.grab_set()
         self.create_widgets()
         
     def create_widgets(self):
-        '''
-        The list of discovered connections should omit the current machine as well as any already known connections.
-        '''
-
         # Build and pack the frames.
         root_frame = tk.Frame(self)
         root_frame.pack(fill=tk.BOTH, padx=2, pady=2)
@@ -259,27 +259,82 @@ class ScanNetwork(tk.Toplevel):
         tk.Entry(ip_subframe, textvariable=self._start_ip, justify=tk.RIGHT, width=3).pack(side=tk.LEFT, anchor=tk.NW)
         tk.Label(ip_subframe, text='thru').pack(side=tk.LEFT, anchor=tk.NW)
         tk.Entry(ip_subframe, textvariable=self._end_ip, justify=tk.RIGHT, width=3).pack(side=tk.LEFT, anchor=tk.NW)
-        tk.Button(settings_frame, text='Start Scan', command=None).pack(anchor=tk.NE)
+        port_subframe = tk.Frame(settings_frame)
+        port_subframe.pack(anchor=tk.NW)
+        tk.Label(port_subframe, text='Port').pack(side=tk.LEFT, anchor=tk.NW)
+        tk.Entry(port_subframe, textvariable=self._port, width=5).pack(side=tk.RIGHT, anchor=tk.NW)
+        self._scan_button = tk.Button(settings_frame, text='Start Scan', command=self.scan)
+        self._scan_button.pack(anchor=tk.NE)
 
         # Build and pack the scan frame widgets.
         tk.Label(scan_frame, text='Available to Add:', justify=tk.LEFT).pack(anchor=tk.NW)
         list_subframe = tk.Frame(scan_frame)
         list_subframe.pack(anchor=tk.NW)
-        listbox = tk.Listbox(list_subframe, listvariable=self._connections_found, selectmode=tk.MULTIPLE, height=6)
-        listbox.pack(side=tk.LEFT, anchor=tk.NW)
+        self._listbox = tk.Listbox(list_subframe, listvariable=self._available_list, selectmode=tk.MULTIPLE, height=6)
+        self._listbox.pack(side=tk.LEFT, anchor=tk.NW)
+        self._listbox.bind('<<ListboxSelect>>', self.update_btn_state)
         scrollbar = tk.Scrollbar(list_subframe)
         scrollbar.pack(fill=tk.Y, side=tk.RIGHT, anchor=tk.NE)
         button_subframe = tk.Frame(scan_frame)
         button_subframe.pack(anchor=tk.NW)
-        tk.Button(button_subframe, text='Add Selected', command=None).pack(side=tk.LEFT, anchor=tk.W)
+        self._add_button = tk.Button(button_subframe, text='Add Selected', command=self.add, state='disabled')
+        self._add_button.pack(side=tk.LEFT, anchor=tk.W)
         tk.Button(button_subframe, text='Close', command=self.destroy).pack(side=tk.RIGHT, anchor=tk.E, padx=(5, 0))
 
         # Build and pack the progress frame widgets.
         progress_frame.pack(side=tk.BOTTOM, anchor=tk.SE, padx=2, pady=2)
-        self._progress_bar = ttk.Progressbar(progress_frame, orient='horizontal', mode='determinate', length=120)
+        self._progress_bar = ttk.Progressbar(progress_frame, orient='horizontal', mode='determinate', length=120, maximum=200)
         self._progress_bar.pack(fill=tk.X, anchor=tk.S)
         tk.Label(progress_frame, textvariable=self._progress_text).pack(anchor=tk.S)
 
         # Widget config settings.
-        scrollbar.config(command=listbox.yview)
-        listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self._listbox.yview)
+        self._listbox.config(yscrollcommand=scrollbar.set)
+    
+    def scan(self):
+        my_ip = SelectorTools.get_this_pc_info()['ip']
+        self._scan_button.config(state='disabled')
+        self._progress_bar['value'] = 0
+        self._progress_bar.update()
+        start = int(self._start_ip.get())
+        end = int(self._end_ip.get())
+        port = int(self._port.get())
+        pb_step_size = self._progress_bar['maximum'] / (1 + end - start)
+        known_ips = [ conn['ip address'] for conn in self._known_connections.values()]
+        known_hostnames = [conn['hostname'] for conn in self._known_connections.values()]
+        if 1 <= start < 256 and start < end < 256:
+            for item in SelectorTools.scan(port=port, address_range=(start, end)):
+                if item['alive'] and item['ip'] != my_ip and item['ip'] not in known_ips and item['name'] not in known_hostnames:
+                    self._connections_discovered.append(item)
+                self._progress_bar['value'] += pb_step_size
+                self._progress_text.set(item['ip'])
+                self._progress_bar.update()
+            self._available_list.set(' '.join([conn['name'] for conn in self._connections_discovered]))
+
+        else:
+            messagebox.showerror('Scan Error', 'Start value must be less than end value, and both values must be between 1 and 255')
+        
+        self._scan_button.config(state='normal')
+    
+    def update_btn_state(self, event=None):
+        if len(self._listbox.curselection()) > 0:
+            self._add_button.config(state='normal')
+        else:
+            self._add_button.config(state='disabled')
+
+    def add(self):
+        conns_to_add = []
+        for conn in self._connections_discovered:
+            if conn['name'] in [self._listbox.get(i) for i in self._listbox.curselection()]:
+                conns_to_add.append(conn)
+
+        available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        for connection in conns_to_add:
+            available_connections[connection['name']] = {
+                'hostname': connection['name'], 
+                'ip address': connection['ip'], 
+                'vnc password': '', 
+                'vnc port': connection['port'],
+                'is alive': False}
+        SelectorTools.save_connections_to_file(available_connections, DATA_FILE)
+        self.destroy()

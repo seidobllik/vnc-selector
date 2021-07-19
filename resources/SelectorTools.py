@@ -74,13 +74,13 @@ def scan(address:str=get_this_pc_info()['ip'], port:int=5900, address_range:tupl
       address (str):  An IP address that is on the network you'd like to scan. Default to host machine ip.
       port (int):  Port which the Tight VNC service is broadcasting.
       address_range (tuple):  The address range to scan. e.g., (100, 120) results in the range 
-                      of 192.168.0.100 to 192.168.0.119.
+                              of 192.168.0.100 to 192.168.0.119.
     '''
 
     socket.setdefaulttimeout(0.25)
     network = '.'.join(address.split('.')[0:-1])
     network += '.'
-    for i in range(address_range[0], address_range[1]):
+    for i in range(address_range[0], address_range[1]+1):
         name = ''
         address_to_scan = network + str(i)
         alive = False

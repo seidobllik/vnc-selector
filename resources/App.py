@@ -22,6 +22,14 @@ class App(tk.Tk):
 
         # Instance Variables.
         self._file_menu = None  # Assigned to tk.Menu in create_widgets().
+        self._file_menu_index = {
+            'Add Connection': 0,
+            'Edit Connection': 1,
+            'Delete Connection': 2,
+            'Scan Network': 3,
+            'Settings': 5,
+            'Exit': 7
+        }
         self._refresh_image = ImageTk.PhotoImage(file='resources\\refresh.png')
         self._green_led = ImageTk.PhotoImage(file='resources\\green.png')
         self._red_led = ImageTk.PhotoImage(file='resources\\red.png')
@@ -49,6 +57,7 @@ class App(tk.Tk):
         menu = tk.Menu(self)
         self._file_menu = tk.Menu(menu, tearoff=0)
         self._file_menu.add_command(label='Add Connection', command=self.add_connection)
+        self._file_menu.add_command(label='Edit Connection', command=None)
         self._file_menu.add_command(label='Delete Connection', command=self.delete_connection)
         self._file_menu.add_command(label='Scan Network', command=self.scan_network)
         self._file_menu.add_separator()
@@ -59,8 +68,9 @@ class App(tk.Tk):
         help_menu = tk.Menu(menu, tearoff=0)
         help_menu.add_command(label='About', command=lambda : Toplevels.About(self))
         menu.add_cascade(label='Help', menu=help_menu)
-        self._file_menu.entryconfig(1, state='disabled')  # Delete Connection disabled initially.
-        self._file_menu.entryconfig(4, state='disabled')  # Settings disabled until the feature is added.
+        self._file_menu.entryconfig(self._file_menu_index['Edit Connection'], state='disabled')
+        self._file_menu.entryconfig(self._file_menu_index['Delete Connection'], state='disabled')
+        self._file_menu.entryconfig(self._file_menu_index['Settings'], state='disabled')  # Settings disabled until the feature is added.
 
         # Build and pack the frames.
         root_frame = tk.Frame(self)
@@ -115,21 +125,23 @@ class App(tk.Tk):
         '''
         tk.Event
         try:
-            selected_target = event.widget.get(event.widget.curselection())
+            selected_target = self._listbox.get(self._listbox.curselection())
             is_alive = self.available_connections[selected_target]['is alive']
             self.target['connection'].set(selected_target)
             self.target['hostname'].set(self.available_connections[selected_target]['hostname'])
             self.target['ip address'].set(self.available_connections[selected_target]['ip address'])
             self._status_led.create_image(11, 11, image=self._green_led if is_alive else self._red_led)
             self._connect_button.config(state='normal' if is_alive else 'disabled')
-            self._file_menu.entryconfig(1, state='normal')
+            self._file_menu.entryconfig(self._file_menu_index['Edit Connection'], state='normal')
+            self._file_menu.entryconfig(self._file_menu_index['Delete Connection'], state='normal')
         except Exception as e:
             self.target['connection'].set('')
             self.target['hostname'].set('')
             self.target['ip address'].set('')
             self._status_led.create_image(11, 11, image=self._red_led)
             self._connect_button.config(state='disabled')
-            self._file_menu.entryconfig(1, state='disabled')
+            self._file_menu.entryconfig(self._file_menu_index['Edit Connection'], state='disabled')
+            self._file_menu.entryconfig(self._file_menu_index['Delete Connection'], state='disabled')
         
     def connect(self):
         '''
@@ -153,11 +165,11 @@ class App(tk.Tk):
     
     def update_connection_status(self, loop=False):
         '''
-        WARNING: Auto-refresh is enabled and started during App init, and should not typically
+        WARNING: Auto-refresh (loop=True) is enabled and started during App init, and should not typically
         be started manually.
         
         Background task, and called when 'refresh' button is pressed. Updates the 'is alive' status of 
-        each connection listed.
+        each connection listed, then calls update_info().
 
         Auto-refresh rate is 60 seconds. 
 
@@ -169,15 +181,11 @@ class App(tk.Tk):
                 self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['hostname'])
             else:
                 self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['ip address'])
-        try:
-            is_alive = self.available_connections[self._listbox.selection_get()]['is alive']
-        except:
-            is_alive = None
-        self._status_led.create_image(11, 11, image=self._green_led if is_alive else self._red_led)
+
+        self.update_info()
         if loop:
             time.sleep(60)
             self.update_connection_status(True)
-            # self.after(60000, self.update_connection_status, (True))
         else:
             self._refresh_button.config(state='normal')
 
@@ -222,7 +230,3 @@ class App(tk.Tk):
         self._listbox.select_clear(0, tk.END)
         self.update_info()
         self.run_status_thread()
-
-# if __name__ == '__main__':
-#     app = App()
-#     app.mainloop()
