@@ -21,7 +21,7 @@ class Hyperlink(tk.Label):
           text (str):  The text to display in the label. Acts as the url if target is not provided.
           target (str):  The url to open when the label is clicked. (default None)
         '''
-        
+
         tk.Label.__init__(self, parent, text=text)
         self.text = text
         self.target = target or text
@@ -31,7 +31,7 @@ class Hyperlink(tk.Label):
         self.bind('<Button-1>', self.open)
         self.bind('<Enter>', self.enter)
         self.bind('<Leave>', self.leave)
-    
+
     def open(self, event):
         webbrowser.open_new(self.target)
 
@@ -69,7 +69,7 @@ class Tooltip(object):
         self.tw.wm_geometry(f'+{x}+{y}')
         label = tk.Label(self.tw, text=self.text, justify=tk.LEFT, relief=tk.SOLID, borderwidth=1, background='white')
         label.pack(ipadx=1)
-    
+
     def close(self, event=None):
         if self.tw:
             self.tw.destroy()
@@ -129,7 +129,7 @@ class AddConnection(tk.Toplevel):
 
         self.grab_set()
         self.create_widgets()
-        
+
     def create_widgets(self):
         # Create and pack the frames.
         root_frame = tk.Frame(self)
@@ -179,6 +179,101 @@ class AddConnection(tk.Toplevel):
         available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
         if connection in available_connections.keys():
             messagebox.showerror('Add Connection Error', 'Failed to add connection. A connection with that name already exists.')
+            return
+        available_connections[connection] = {
+            'hostname': hostname, 
+            'ip address': ip, 
+            'vnc password': password, 
+            'vnc port': port,
+            'is alive': False}
+        SelectorTools.save_connections_to_file(available_connections, DATA_FILE)
+        self.destroy()
+
+
+class EditConnection(tk.Toplevel):
+    '''
+    Displays the editing window for the user to edit a known connection's details.
+    '''
+    def __init__(self, parent, old_connection):
+        tk.Toplevel.__init__(self, parent)
+        self.title('Edit Connection')
+        self.resizable(False, False)
+        x = int(parent.winfo_screenwidth()/2.5)
+        y = int(parent.winfo_screenheight()/2.5)
+        self.geometry(f'+{x}+{y}')
+
+        # Instance variables.
+        self._old_connection = old_connection
+        self._hostname_entry = None
+        self._ip_entry = None
+        self._connection_entry = None
+        self._password_entry = None
+        self._port_entry = None
+
+        self.grab_set()
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Create and pack the frames.
+        root_frame = tk.Frame(self)
+        root_frame.pack(fill=tk.BOTH, padx=2, pady=2)
+        entry_frame = tk.Frame(root_frame)
+        entry_frame.pack()
+        required_frame = tk.LabelFrame(entry_frame, text='Require at least one')
+        required_frame.pack(side=tk.LEFT, anchor=tk.NW, padx=2, pady=2, ipadx=2, ipady=2)
+        optional_frame = tk.LabelFrame(entry_frame, text='Optional')
+        optional_frame.pack(side=tk.RIGHT, anchor=tk.NW, padx=2, pady=2, ipadx=2, ipady=2)
+        button_frame = tk.Frame(root_frame)
+        button_frame.pack(padx=2, pady=2, ipadx=2, ipady=2)
+
+        # Create and pack the widgets.
+        tk.Label(required_frame, text='Hostname').pack(anchor=tk.NW)
+        self._hostname_entry = tk.Entry(required_frame, width=20)
+        self._hostname_entry.pack(anchor=tk.NW)
+        tk.Label(required_frame, text='IP Address').pack(anchor=tk.NW)
+        self._ip_entry = tk.Entry(required_frame, width=20)
+        self._ip_entry.pack(anchor=tk.NW)
+        tk.Label(optional_frame, text='Connection Name').pack(anchor=tk.NW)
+        self._connection_entry = tk.Entry(optional_frame, width=20)
+        self._connection_entry.pack(anchor=tk.NW)
+        tk.Label(optional_frame, text='VNC Server Password').pack(anchor=tk.NW)
+        self._password_entry = tk.Entry(optional_frame, width=20)
+        self._password_entry.pack(anchor=tk.NW)
+        tk.Label(optional_frame, text='VNC Server Port').pack(anchor=tk.NW)
+        self._port_entry = tk.Entry(optional_frame, width=20)
+        self._port_entry.pack(anchor=tk.NW)
+        tk.Button(button_frame, text='Save', width=10, command=self.save).pack(side=tk.LEFT)
+        tk.Button(button_frame, text='Cancel', width=10, command=self.destroy).pack(side=tk.RIGHT)
+
+        # Widget config settings.
+        available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        self._hostname_entry.insert(0, available_connections[self._old_connection]['hostname'])
+        self._ip_entry.insert(0, available_connections[self._old_connection]['ip address'])
+        self._connection_entry.insert(0, self._old_connection)
+        self._password_entry.insert(0, available_connections[self._old_connection]['vnc password'])
+        self._port_entry.insert(0, available_connections[self._old_connection]['vnc port'])
+
+    def save(self):
+        hostname = self._hostname_entry.get()
+        ip = self._ip_entry.get()
+        connection = self._connection_entry.get()
+        password = self._password_entry.get()
+        port = self._port_entry.get() or '5900'
+        available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+
+        if hostname == '' and ip == '':
+            messagebox.showerror('Edit Connection Error', 'Failed to save changes. You must include either a Hostname or an IP Address.')
+            return
+        if connection == '': 
+            connection = hostname or ip
+        if password == '' or '********':
+            password = available_connections[self._old_connection]['vnc password']
+        if port == '':
+            port = '5900'
+
+        del available_connections[self._old_connection]
+        if connection in available_connections.keys():
+            messagebox.showerror('Edit Connection Error', 'Failed to save changes. A connection with that name already exists.')
             return
         available_connections[connection] = {
             'hostname': hostname, 
@@ -240,7 +335,7 @@ class ScanNetwork(tk.Toplevel):
 
         self.grab_set()
         self.create_widgets()
-        
+
     def create_widgets(self):
         # Build and pack the frames.
         root_frame = tk.Frame(self)
@@ -290,7 +385,7 @@ class ScanNetwork(tk.Toplevel):
         # Widget config settings.
         scrollbar.config(command=self._listbox.yview)
         self._listbox.config(yscrollcommand=scrollbar.set)
-    
+
     def scan(self):
         my_ip = SelectorTools.get_this_pc_info()['ip']
         self._scan_button.config(state='disabled')
@@ -315,7 +410,7 @@ class ScanNetwork(tk.Toplevel):
             messagebox.showerror('Scan Error', 'Start value must be less than end value, and both values must be between 1 and 255')
         
         self._scan_button.config(state='normal')
-    
+
     def update_btn_state(self, event=None):
         if len(self._listbox.curselection()) > 0:
             self._add_button.config(state='normal')
@@ -338,3 +433,29 @@ class ScanNetwork(tk.Toplevel):
                 'is alive': False}
         SelectorTools.save_connections_to_file(available_connections, DATA_FILE)
         self.destroy()
+
+class ShowSettings(tk.Toplevel):
+    '''
+    Displays the window to view and modify settings.
+    
+    menu to enable/disable the connections 'online' scanning and indication.
+        This should hide the 'scan' button, LED indicator, and disable the Scan Network menu option.
+    Also, checkbox to close app when connected?
+        This just closes the app once the connect button is pressed. 
+    '''
+    def __init__(self, parent):
+        tk.Toplevel.__init__(self, parent)
+        self.title('Settings')
+        self.resizable(False, False)
+        x = int(parent.winfo_screenwidth()/2.5)
+        y = int(parent.winfo_screenheight()/2.5)
+        self.geometry(f'+{x}+{y}')
+
+        # Instance Variables.
+
+        self.grab_set()
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Build and pack the frames.
+        pass

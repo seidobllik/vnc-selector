@@ -17,7 +17,9 @@ class App(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
         self.title(f'VNC Selector on [{App.hostname}]')
-        self.geometry('360x160')
+        x = int(self.winfo_screenwidth()/2.5) - 10
+        y = int(self.winfo_screenheight()/2.5) - 10
+        self.geometry(f'360x160+{x}+{y}')
         self.resizable(False, False)
 
         # Instance Variables.
@@ -57,11 +59,11 @@ class App(tk.Tk):
         menu = tk.Menu(self)
         self._file_menu = tk.Menu(menu, tearoff=0)
         self._file_menu.add_command(label='Add Connection', command=self.add_connection)
-        self._file_menu.add_command(label='Edit Connection', command=None)
+        self._file_menu.add_command(label='Edit Connection', command=self.edit_connection)
         self._file_menu.add_command(label='Delete Connection', command=self.delete_connection)
         self._file_menu.add_command(label='Scan Network', command=self.scan_network)
         self._file_menu.add_separator()
-        self._file_menu.add_command(label='Settings', command=None)
+        self._file_menu.add_command(label='Settings', command=self.show_settings)
         self._file_menu.add_separator()
         self._file_menu.add_command(label='Exit', command=self.destroy)
         menu.add_cascade(label='File', menu=self._file_menu)
@@ -177,11 +179,14 @@ class App(tk.Tk):
           loop (bool):  If True, auto-refresh is enabled. (default False)
         '''
         for key in self.available_connections.keys():
-            if self.available_connections[key]['hostname'] != '':
-                self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['hostname'])
-            else:
-                self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['ip address'])
-
+            try:
+                if self.available_connections[key]['hostname'] != '':
+                    self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['hostname'])
+                else:
+                    self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['ip address'])
+            except KeyError as e:
+                # KeyErrors may occur in a loop which was running while the user edits a connection.
+                break
         self.update_info()
         if loop:
             time.sleep(60)
@@ -206,7 +211,19 @@ class App(tk.Tk):
         self._listbox.select_clear(0, tk.END)
         self.update_info()
         self.run_status_thread()
-    
+
+    def edit_connection(self):
+        '''
+        Loads the Edit Connection window, then updates all available connections and their status.
+        '''
+        connection = self._listbox.get(self._listbox.curselection()[0])
+        Toplevels.EditConnection(self, connection).wait_window()
+        self.available_connections = self.get_saved_connections()
+        self._listbox_list.set(sorted([key for key in self.available_connections.keys()]))
+        self._listbox.select_clear(0, tk.END)
+        self.update_info()
+        self.run_status_thread()
+
     def delete_connection(self):
         '''
         Loads the Delete Connection window, then updates all available connections and their status.
@@ -219,7 +236,7 @@ class App(tk.Tk):
         self._listbox.select_clear(0, tk.END)
         self.update_info()
         self.run_status_thread()
-    
+
     def scan_network(self):
         '''
         Loads the Scan Network window, then updates all available connections and their status.
@@ -230,3 +247,9 @@ class App(tk.Tk):
         self._listbox.select_clear(0, tk.END)
         self.update_info()
         self.run_status_thread()
+
+    def show_settings(self):
+        '''
+        Loads the Settings window, then updates the GUI.
+        '''
+        Toplevels.ShowSettings(self).wait_window()
