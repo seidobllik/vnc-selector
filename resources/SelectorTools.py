@@ -7,7 +7,8 @@ import socket
 import pathlib
 import pickle
 
-DATA_FILE = 'resources\\data.dat'
+DATA_FILE = 'resources\\connections.dat'
+SETTINGS_FILE = 'resources\\settings.dat'
 
 def launch_viewer(target:str, password:str='', port=5900):
     '''
@@ -92,7 +93,7 @@ def scan(address:str=get_this_pc_info()['ip'], port:int=5900, address_range:tupl
                 raise e
         yield {'name':name, 'ip':address_to_scan, 'port':port, 'alive': alive}
 
-def get_connections_from_file(file):
+def get_connections_from_file(file:str=DATA_FILE):
     '''
     Returns connections dict from the provided file.
 
@@ -108,12 +109,37 @@ def get_connections_from_file(file):
         data[key]['is alive'] = False
     return data
 
-def save_connections_to_file(data, file):
+def save_connections_to_file(data:dict, file:str=DATA_FILE):
     '''
     Saves the provided connections to the provided file.
 
     args:
       data (dict):  The connections dict to save.
+      file (str):  The file path and name to save the data to.
+    '''
+    with open(file, 'wb') as f:
+        pickle.dump(data, f)
+
+def get_settings_from_file(file:str=SETTINGS_FILE):
+    '''
+    Returns settings dict from the provided file.
+
+    args:
+      file (str):  The file path and name. 
+    '''
+    if not pathlib.Path(file).is_file():
+        with open(file, 'wb') as f:
+            pickle.dump({}, f)
+    with open(file, 'rb') as f:
+        data = pickle.load(f)
+    return data
+
+def save_settings_to_file(data:dict, file:str=SETTINGS_FILE):
+    '''
+    Saves the provided settings to the provided file.
+
+    args:
+      data (dict):  The settings dict to save.
       file (str):  The file path and name to save the data to.
     '''
     with open(file, 'wb') as f:

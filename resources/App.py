@@ -5,8 +5,6 @@ from PIL import ImageTk
 import threading
 import time
 
-DATA_FILE = SelectorTools.DATA_FILE
-
 
 class App(tk.Tk):
     '''
@@ -14,6 +12,7 @@ class App(tk.Tk):
     '''
     # Class Variables.
     hostname, ip = SelectorTools.get_this_pc_info().values()
+
     def __init__(self):
         tk.Tk.__init__(self)
         self.title(f'VNC Selector on [{App.hostname}]')
@@ -35,6 +34,7 @@ class App(tk.Tk):
         self._refresh_image = ImageTk.PhotoImage(file='resources\\refresh.png')
         self._green_led = ImageTk.PhotoImage(file='resources\\green.png')
         self._red_led = ImageTk.PhotoImage(file='resources\\red.png')
+        self._grey_led = ImageTk.PhotoImage(file='resources\\grey.png')
         self._status_led = None  # Assigned to tk.Canvas in create_widgets().
         self._connect_button = None  # Assigned to tk.Button in create_widgets().
         self._refresh_button = None  # Assigned to tk.Button in create_widgets().
@@ -46,6 +46,7 @@ class App(tk.Tk):
             'ip address': tk.StringVar()
             }
         self.available_connections = self.get_saved_connections()
+        self.settings = self.get_saved_settings()
 
         # Start the app.
         self._create_widgets()
@@ -72,7 +73,7 @@ class App(tk.Tk):
         menu.add_cascade(label='Help', menu=help_menu)
         self._file_menu.entryconfig(self._file_menu_index['Edit Connection'], state='disabled')
         self._file_menu.entryconfig(self._file_menu_index['Delete Connection'], state='disabled')
-        self._file_menu.entryconfig(self._file_menu_index['Settings'], state='disabled')  # Settings disabled until the feature is added.
+        # self._file_menu.entryconfig(self._file_menu_index['Settings'], state='disabled')  # Settings disabled until the feature is added.
 
         # Build and pack the frames.
         root_frame = tk.Frame(self)
@@ -116,6 +117,22 @@ class App(tk.Tk):
         scrollbar.config(command=self._listbox.yview)
         self._listbox.config(yscrollcommand=scrollbar.set)
         self._connect_button.config(state='disabled')
+        self.update_widget_visibility()
+    
+    def update_widget_visibility(self):
+        '''
+        Update widget visibility based on saved settings.
+
+        scan button, led indicator.
+        '''
+        if self.settings['enable scan']:
+            self._refresh_button.config(state='normal')
+            self._status_led.config(state='normal')
+        else:
+            self._refresh_button.config(state='disabled')
+            self._status_led.config(state='disabled')
+            self._status_led.create_image(11, 11, image=self._grey_led)
+            self._connect_button.config(state='normal')
 
     def update_info(self, event=None):
         '''
@@ -144,6 +161,7 @@ class App(tk.Tk):
             self._connect_button.config(state='disabled')
             self._file_menu.entryconfig(self._file_menu_index['Edit Connection'], state='disabled')
             self._file_menu.entryconfig(self._file_menu_index['Delete Connection'], state='disabled')
+        self.update_widget_visibility()
         
     def connect(self):
         '''
@@ -158,12 +176,15 @@ class App(tk.Tk):
         port = self.available_connections[connection]['vnc port']
         target = hostname if hostname != '' else ip
         SelectorTools.launch_viewer(target, pwd, port)
+        if self.settings['enable close']:
+            # self.destroy()
+            pass  # TODO: Need to fix this. Destroying the app closes VNC as well.
     
     def get_saved_connections(self):
         '''
         Returns connection dict loaded from the data file.
         '''
-        return SelectorTools.get_connections_from_file(DATA_FILE)
+        return SelectorTools.get_connections_from_file()
     
     def update_connection_status(self, loop=False):
         '''
@@ -178,21 +199,24 @@ class App(tk.Tk):
         args:
           loop (bool):  If True, auto-refresh is enabled. (default False)
         '''
-        for key in self.available_connections.keys():
-            try:
-                if self.available_connections[key]['hostname'] != '':
-                    self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['hostname'])
-                else:
-                    self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['ip address'])
-            except KeyError as e:
-                # KeyErrors may occur in a loop which was running while the user edits a connection.
-                break
-        self.update_info()
-        if loop:
-            time.sleep(60)
-            self.update_connection_status(True)
-        else:
-            self._refresh_button.config(state='normal')
+        if self.settings['enable scan']:
+            for key in self.available_connections.keys():
+                try:
+                    if self.available_connections[key]['hostname'] != '':
+                        self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['hostname'])
+                    else:
+                        self.available_connections[key]['is alive'] = SelectorTools.is_alive(self.available_connections[key]['ip address'])
+                except KeyError as e:
+                    # KeyErrors may occur in a loop which was running while the user edits a connection.
+                    break
+            self.update_info()
+            if loop:
+                time.sleep(60)
+                if self.settings['enable scan']:
+                    self.update_connection_status(True)
+            else:
+                self._refresh_button.config(state='normal')
+
 
     def run_status_thread(self, loop=False):
         if not loop:
@@ -253,3 +277,12 @@ class App(tk.Tk):
         Loads the Settings window, then updates the GUI.
         '''
         Toplevels.ShowSettings(self).wait_window()
+        self.settings = self.get_saved_settings()
+        self.update_info()
+        self.run_status_thread()
+
+    def get_saved_settings(self):
+        '''
+        Returns connection dict loaded from the data file.
+        '''
+        return SelectorTools.get_settings_from_file()
