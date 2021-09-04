@@ -6,8 +6,6 @@ from PIL import ImageTk
 import webbrowser
 import resources.SelectorTools as SelectorTools
 
-DATA_FILE = SelectorTools.DATA_FILE
-
 
 class Hyperlink(tk.Label):
     
@@ -176,7 +174,7 @@ class AddConnection(tk.Toplevel):
             connection = hostname or ip
         if port == '':
             port = '5900'
-        available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        available_connections = SelectorTools.get_connections_from_file()
         if connection in available_connections.keys():
             messagebox.showerror('Add Connection Error', 'Failed to add connection. A connection with that name already exists.')
             return
@@ -186,7 +184,7 @@ class AddConnection(tk.Toplevel):
             'vnc password': password, 
             'vnc port': port,
             'is alive': False}
-        SelectorTools.save_connections_to_file(available_connections, DATA_FILE)
+        SelectorTools.save_connections_to_file(available_connections)
         self.destroy()
 
 
@@ -246,7 +244,7 @@ class EditConnection(tk.Toplevel):
         tk.Button(button_frame, text='Cancel', width=10, command=self.destroy).pack(side=tk.RIGHT)
 
         # Widget config settings.
-        available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        available_connections = SelectorTools.get_connections_from_file()
         self._hostname_entry.insert(0, available_connections[self._old_connection]['hostname'])
         self._ip_entry.insert(0, available_connections[self._old_connection]['ip address'])
         self._connection_entry.insert(0, self._old_connection)
@@ -259,7 +257,7 @@ class EditConnection(tk.Toplevel):
         connection = self._connection_entry.get()
         password = self._password_entry.get()
         port = self._port_entry.get() or '5900'
-        available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        available_connections = SelectorTools.get_connections_from_file()
 
         if hostname == '' and ip == '':
             messagebox.showerror('Edit Connection Error', 'Failed to save changes. You must include either a Hostname or an IP Address.')
@@ -281,7 +279,7 @@ class EditConnection(tk.Toplevel):
             'vnc password': password, 
             'vnc port': port,
             'is alive': False}
-        SelectorTools.save_connections_to_file(available_connections, DATA_FILE)
+        SelectorTools.save_connections_to_file(available_connections)
         self.destroy()
 
 
@@ -299,9 +297,9 @@ class DeleteConnection(object):
     def show(self):
         self._selection = messagebox.askyesno(self.title, self.message)
         if self._selection:
-            available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+            available_connections = SelectorTools.get_connections_from_file()
             del available_connections[self._connection]
-            SelectorTools.save_connections_to_file(available_connections, DATA_FILE)
+            SelectorTools.save_connections_to_file(available_connections)
 
 
 class ScanNetwork(tk.Toplevel):
@@ -319,7 +317,7 @@ class ScanNetwork(tk.Toplevel):
 
         # Instance Variables.
         self._this_pc = SelectorTools.get_this_pc_info()
-        self._known_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        self._known_connections = SelectorTools.get_connections_from_file()
         self._available_list = tk.StringVar()
         self._connections_discovered = []
         self._listbox = None  # Assigned to tk.Listbox in create_widgets().
@@ -423,7 +421,7 @@ class ScanNetwork(tk.Toplevel):
             if conn['name'] in [self._listbox.get(i) for i in self._listbox.curselection()]:
                 conns_to_add.append(conn)
 
-        available_connections = SelectorTools.get_connections_from_file(DATA_FILE)
+        available_connections = SelectorTools.get_connections_from_file()
         for connection in conns_to_add:
             available_connections[connection['name']] = {
                 'hostname': connection['name'], 
@@ -431,7 +429,7 @@ class ScanNetwork(tk.Toplevel):
                 'vnc password': '', 
                 'vnc port': connection['port'],
                 'is alive': False}
-        SelectorTools.save_connections_to_file(available_connections, DATA_FILE)
+        SelectorTools.save_connections_to_file(available_connections)
         self.destroy()
 
 class ShowSettings(tk.Toplevel):
@@ -449,13 +447,44 @@ class ShowSettings(tk.Toplevel):
         self.resizable(False, False)
         x = int(parent.winfo_screenwidth()/2.5)
         y = int(parent.winfo_screenheight()/2.5)
+        self.config(width=100)
         self.geometry(f'+{x}+{y}')
 
         # Instance Variables.
+        settings = SelectorTools.get_settings_from_file()
+        self.enable_scan = tk.IntVar()
+        self.enable_close = tk.IntVar()
+        self.enable_scan.set(settings['enable scan'])
+        self.enable_close.set(settings['enable close'])
 
         self.grab_set()
         self.create_widgets()
 
     def create_widgets(self):
         # Build and pack the frames.
-        pass
+        root_frame = tk.Frame(self)
+        root_frame.pack(fill=tk.BOTH, padx=2, pady=2)
+        scan_frame = tk.LabelFrame(root_frame, text='Refresh known server status', font='Helvetica 9 bold')
+        scan_frame.pack(fill=tk.BOTH, side=tk.TOP, anchor=tk.NW, padx=2, pady=2, ipadx=2, ipady=2)
+        close_frame = tk.LabelFrame(root_frame, text='Close app after connecting', font='Helvetica 9 bold')
+        close_frame.pack(fill=tk.BOTH, side=tk.TOP, anchor=tk.NW, padx=2, pady=2, ipadx=2, ipady=2)
+        button_frame = tk.Frame(root_frame)
+        button_frame.pack(padx=2, pady=2, ipadx=2, ipady=2)
+
+        # Build and pack the scan frame widgets.
+        tk.Checkbutton(scan_frame, variable=self.enable_scan, wraplength=400, text='If enabled, will scan the network and update the availability status of all known connections at a regular interval.').pack(anchor=tk.NW)
+
+        # Build and pack the close frame widgets.
+        tk.Checkbutton(close_frame, variable=self.enable_close, wraplength=400, text='If enabled, will close the app when a connection is started.').pack(anchor=tk.NW)
+
+        # Build and pack the button frame widgets.
+        tk.Button(button_frame, text='Save', width=10, command=self.save).pack(side=tk.LEFT)
+        tk.Button(button_frame, text='Cancel', width=10, command=self.destroy).pack(side=tk.RIGHT)
+
+    def save(self):
+        data = {
+            'enable scan': self.enable_scan.get(),
+            'enable close': self.enable_close.get()
+        }
+        SelectorTools.save_settings_to_file(data)
+        self.destroy()
