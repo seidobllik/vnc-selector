@@ -129,7 +129,7 @@ def get_settings_from_file(file:str=SETTINGS_FILE):
     '''
     if not pathlib.Path(file).is_file():
         with open(file, 'wb') as f:
-            pickle.dump({}, f)
+            pickle.dump({'enable scan':1, 'enable close':0}, f)
     with open(file, 'rb') as f:
         data = pickle.load(f)
     return data

@@ -3,7 +3,6 @@ import resources.Toplevels as Toplevels
 import resources.SelectorTools as SelectorTools
 from PIL import ImageTk
 import threading
-import time
 
 
 class App(tk.Tk):
@@ -177,8 +176,7 @@ class App(tk.Tk):
         target = hostname if hostname != '' else ip
         SelectorTools.launch_viewer(target, pwd, port)
         if self.settings['enable close']:
-            # self.destroy()
-            pass  # TODO: Need to fix this. Destroying the app closes VNC as well.
+            self.destroy()
     
     def get_saved_connections(self):
         '''
