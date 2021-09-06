@@ -25,5 +25,5 @@ To run VNC Selector:
 * **Edit Connection** - Modify the properties of a known connection.
 * **Delete Connection** - Removes a connection from your list of known connections.
 * **Settings**
- * **Refresh known server status** - Enable or disable the auto scan feature which updates known connection availability status.
- * **Close app after connecting** - Enable or disable feature which closes VNC Selector after connecting.
+  * **Refresh known server status** - Enable or disable the auto scan feature which updates known connection availability status.
+  * **Close app after connecting** - Enable or disable feature which closes VNC Selector after connecting.
