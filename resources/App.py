@@ -3,6 +3,7 @@ import resources.Toplevels as Toplevels
 import resources.SelectorTools as SelectorTools
 from PIL import ImageTk
 import threading
+import time
 
 
 class App(tk.Tk):
@@ -72,7 +73,6 @@ class App(tk.Tk):
         menu.add_cascade(label='Help', menu=help_menu)
         self._file_menu.entryconfig(self._file_menu_index['Edit Connection'], state='disabled')
         self._file_menu.entryconfig(self._file_menu_index['Delete Connection'], state='disabled')
-        # self._file_menu.entryconfig(self._file_menu_index['Settings'], state='disabled')  # Settings disabled until the feature is added.
 
         # Build and pack the frames.
         root_frame = tk.Frame(self)
@@ -121,8 +121,6 @@ class App(tk.Tk):
     def update_widget_visibility(self):
         '''
         Update widget visibility based on saved settings.
-
-        scan button, led indicator.
         '''
         if self.settings['enable scan']:
             self._refresh_button.config(state='normal')
@@ -215,8 +213,13 @@ class App(tk.Tk):
             else:
                 self._refresh_button.config(state='normal')
 
-
     def run_status_thread(self, loop=False):
+        '''
+        Creates and starts a thread to run update_connection_status.
+
+        args:
+            loop (bool): If False, the refresh button is disabled while the tread is active. (default False)
+        '''
         if not loop:
             self._refresh_button.config(state='disabled')
         status_thread = threading.Thread(target=self.update_connection_status, args=(loop,))

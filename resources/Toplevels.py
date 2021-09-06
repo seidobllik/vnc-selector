@@ -8,18 +8,17 @@ import resources.SelectorTools as SelectorTools
 
 
 class Hyperlink(tk.Label):
-    
+    '''
+    Inherits from tk.Label. Enables the label to act as a hyperlink, and open a 
+    web browser page to the provided target, or text value. 
+    '''
     def __init__(self, parent, text, target=None):
         '''
-        Inherits from tk.Label. Enables the label to act as a hyperlink, and open a 
-        web browser page to the provided target, or text value. 
-
         args:
           parent (tk.Frame):  The parent frame of this label.
           text (str):  The text to display in the label. Acts as the url if target is not provided.
           target (str):  The url to open when the label is clicked. (default None)
         '''
-
         tk.Label.__init__(self, parent, text=text)
         self.text = text
         self.target = target or text
@@ -43,11 +42,11 @@ class Hyperlink(tk.Label):
 
 
 class Tooltip(object):
-
+    '''
+    Creates a tooltip for a provided widget using a tk.Toplevel window with no title bar. 
+    '''
     def __init__(self, widget, text='widget info'):
         '''
-        Creates a tooltip for a provided widget using a tk.Toplevel window with no title bar. 
-
         args:
           widget (tk widget):  The widget for which the tooltip will appear.
           text (str):  The text to display in the tooltip.
@@ -264,7 +263,7 @@ class EditConnection(tk.Toplevel):
             return
         if connection == '': 
             connection = hostname or ip
-        if password == '' or '********':
+        if password == '':
             password = available_connections[self._old_connection]['vnc password']
         if port == '':
             port = '5900'
@@ -435,11 +434,6 @@ class ScanNetwork(tk.Toplevel):
 class ShowSettings(tk.Toplevel):
     '''
     Displays the window to view and modify settings.
-    
-    menu to enable/disable the connections 'online' scanning and indication.
-        This should hide the 'scan' button, LED indicator, and disable the Scan Network menu option.
-    Also, checkbox to close app when connected?
-        This just closes the app once the connect button is pressed. 
     '''
     def __init__(self, parent):
         tk.Toplevel.__init__(self, parent)
